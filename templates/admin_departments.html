@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body data-role="admin">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('manage_departments') }}" class="nav-link active">
+                    <i data-lucide="building-2"></i> <span>Departments</span>
+                </a>
+                <a href="{{ url_for('manage_courses') }}" class="nav-link">
+                    <i data-lucide="book-open"></i> <span>Course Catalog</span>
+                </a>
+                <a href="{{ url_for('manage_users') }}" class="nav-link">
+                    <i data-lucide="users"></i> <span>User Directory</span>
+                </a>
+                <a href="{{ url_for('faculty_domain') }}" class="nav-link">
+                    <i data-lucide="award"></i> <span>Expertise</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="page-breadcrumb">Admin / Department Matrix</span>
+                </div>
+                <div class="header-right">
+                    <div class="user-profile">
+                        <div class="user-avatar">A</div>
+                        <div class="user-info">
+                            <span class="user-name">System Administrator</span>
+                            <span class="user-role">Full Access Control</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="section-header dept-top-header">
+                    <h1 class="section-title" style="font-size: 2.25rem; font-weight: 800; color: #111827;">Departments</h1>
+                    <button class="btn-add-dept" onclick="openDeptModal()">Add New Department</button>
+                </div>
+
+                <div class="dept-grid">
+                    {% for dept in departments %}
+                    <div class="dept-card">
+                        <div class="dept-info">
+                            <h3 class="dept-title">{{ dept.name }}</h3>
+                            <p class="dept-code">Department Code: {{ dept.code }}</p>
+                        </div>
+                        <div class="dept-actions">
+                            <button class="btn-dept-details">Details</button>
+                            <button class="btn-dept-announce">Announcements</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- Add Department Modal -->
+    <div id="deptModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>Add New Department</h2>
+                <button class="modal-close" onclick="closeDeptModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <div class="form-group">
+                        <label class="form-label">Department Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. Mechanical Engineering" required>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Create</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        lucide.createIcons();
+        function openDeptModal() { document.getElementById('deptModal').style.display = 'flex'; }
+        function closeDeptModal() { document.getElementById('deptModal').style.display = 'none'; }
+    </script>
+</body>
+</html>

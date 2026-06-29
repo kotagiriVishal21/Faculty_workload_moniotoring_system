@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workload Redistribution - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .status-bar-bg { height: 10px; border-radius: 99px; background: var(--border-color); overflow: hidden; margin-top: 6px; }
+        .status-bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s; }
+        .alert-banner { border-radius: 14px; padding: 1rem 1.5rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; }
+        .alert-red { background: rgba(239,68,68,0.1); border: 1.5px solid rgba(239,68,68,0.3); }
+        .alert-green { background: rgba(34,197,94,0.1); border: 1.5px solid rgba(34,197,94,0.3); }
+        .suggestion-card { border-radius: 16px; border: 1.5px solid var(--border-color); padding: 1.5rem; margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 48px 1fr auto; gap: 1rem; align-items: center; }
+        .suggestion-card:hover { border-color: var(--premium-blue); box-shadow: 0 4px 20px rgba(59,130,246,0.1); }
+        .arrow-circle { width: 48px; height: 48px; border-radius: 50%; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; color: var(--premium-blue); font-size: 1.25rem; }
+        .faculty-capacity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+        .capacity-card { border-radius: 14px; padding: 1.25rem; border: 1.5px solid var(--border-color); }
+        .pct-label { font-size: 1.75rem; font-weight: 900; line-height: 1; }
+        .capacity-chip { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; margin-top: 8px; }
+        .chip-red { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .chip-yellow { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .chip-green { background: rgba(34,197,94,0.12); color: #22c55e; }
+    </style>
+</head>
+<body data-role="hod">
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="brand-section">
+            <div class="brand-logo"><i data-lucide="graduation-cap"></i></div>
+            <span class="brand-name">FacultyPulse</span>
+        </div>
+        <nav class="nav-menu">
+            <a href="{{ url_for('index') }}" class="nav-link"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a>
+            <a href="{{ url_for('hod_dashboard') }}" class="nav-link"><i data-lucide="check-square"></i> <span>Approvals</span></a>
+            <a href="{{ url_for('manage_timetable') }}" class="nav-link"><i data-lucide="calendar"></i> <span>Timetable</span></a>
+            <a href="{{ url_for('task_distribution') }}" class="nav-link"><i data-lucide="users"></i> <span>Task Delegation</span></a>
+            <a href="{{ url_for('schedule_optimization') }}" class="nav-link"><i data-lucide="clock"></i> <span>Workload Schedule</span></a>
+            <a href="{{ url_for('redistribution') }}" class="nav-link active"><i data-lucide="shuffle"></i> <span>Redistribution</span></a>
+            <a href="{{ url_for('hod_accreditation') }}" class="nav-link"><i data-lucide="file-text"></i> <span>Reports</span></a>
+            <a href="{{ url_for('logout') }}" class="nav-link logout-link"><i data-lucide="log-out"></i> <span>Sign Out</span></a>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div class="header-left">
+                <span class="user-name">Fair Workload Redistribution — {{ today }}</span>
+            </div>
+            <div class="header-right">
+                <a href="{{ url_for('redistribution') }}" class="btn btn-primary" style="padding:0.5rem 1.25rem;font-size:0.875rem;">
+                    <i data-lucide="refresh-cw" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i>Refresh
+                </a>
+            </div>
+        </header>
+
+        <div class="content-area">
+            <!-- Summary Banners -->
+            {% if overloaded %}
+            <div class="alert-banner alert-red">
+                <i data-lucide="alert-triangle" style="color:#ef4444;min-width:24px;"></i>
+                <div>
+                    <strong style="color:#ef4444;">{{ overloaded|length }} Faculty Overloaded Today</strong>
+                    <p style="margin:0;font-size:0.85rem;color:var(--text-muted);">
+                        These faculty members are at or above 90% workload. Review suggestions below.
+                    </p>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert-banner alert-green">
+                <i data-lucide="check-circle" style="color:#22c55e;min-width:24px;"></i>
+                <div>
+                    <strong style="color:#22c55e;">No Overloaded Faculty Today</strong>
+                    <p style="margin:0;font-size:0.85rem;color:var(--text-muted);">All faculty are within the 8-hour / 90% limit. No redistribution needed.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Department Workload Overview Chart -->
+            <div class="card premium-card" style="margin-bottom:2rem;">
+                <h3 style="font-weight:700;margin-bottom:1rem;">Today's Faculty Workload Overview</h3>
+                <div style="position:relative;height:260px;">
+                    <canvas id="overviewChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Faculty Capacity Cards -->
+            <div class="section-header" style="margin-bottom:1rem;">
+                <h2 class="section-title">Faculty Capacity Status</h2>
+                <p style="color:var(--text-muted);font-size:0.875rem;">Based on today's scheduled workload vs 8-hour maximum</p>
+            </div>
+            <div class="faculty-capacity-grid" style="margin-bottom:2rem;">
+                {% for f in faculty_status %}
+                {% set c = 'red' if f.percentage >= 90 else ('yellow' if f.percentage >= 50 else 'green') %}
+                {% set hex = '#ef4444' if c == 'red' else ('#f59e0b' if c == 'yellow' else '#22c55e') %}
+                <div class="capacity-card">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <div class="pct-label" style="color:{{ hex }};">{{ f.percentage|round(0)|int }}%</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">{{ f.total_hours }}h / 8h</div>
+                        </div>
+                        {% if f.percentage >= 90 %}
+                        <span class="capacity-chip chip-red">⚠ Overloaded</span>
+                        {% elif f.percentage >= 50 %}
+                        <span class="capacity-chip chip-yellow">Balanced</span>
+                        {% else %}
+                        <span class="capacity-chip chip-green">Available</span>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top:0.75rem;font-weight:700;font-size:0.9rem;">{{ f.name }}</div>
+                    <div class="status-bar-bg">
+                        <div class="status-bar-fill" style="width:{{ [f.percentage,100]|min }}%;background:{{ hex }};"></div>
+                    </div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">
+                        {{ f.capacity_left }}h available capacity
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Redistribution Suggestions -->
+            {% if suggestions %}
+            <div class="section-header" style="margin-bottom:1rem;">
+                <h2 class="section-title">Redistribution Suggestions</h2>
+                <p style="color:var(--text-muted);font-size:0.875rem;">
+                    Click <strong>Apply</strong> to reassign a task from an overloaded faculty member to an available one.
+                </p>
+            </div>
+            <div class="card premium-card" style="margin-bottom:2rem;">
+                {% for s in suggestions %}
+                <div class="suggestion-card">
+                    <!-- FROM -->
+                    <div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#ef4444;text-transform:uppercase;margin-bottom:4px;">From (Overloaded)</div>
+                        <div style="font-weight:800;font-size:1rem;">{{ s.from_name }}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);">Currently {{ s.from_pct }}% → After: {{ s.new_from_pct }}%</div>
+                        <div style="margin-top:6px;">
+                            <span style="font-size:0.85rem;font-weight:600;">📌 {{ s.task_name }}</span>
+                            <span style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;">{{ s.activity_type }} · {{ s.duration }}h</span>
+                        </div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="arrow-circle">→</div>
+
+                    <!-- TO -->
+                    <div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#22c55e;text-transform:uppercase;margin-bottom:4px;">To (Available)</div>
+                        <div style="font-weight:800;font-size:1rem;">{{ s.to_name }}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);">Currently {{ s.to_pct }}% → After: {{ s.new_to_pct }}%</div>
+                        <div style="margin-top:6px;">
+                            <span class="capacity-chip chip-green">{{ s.to_pct }}% used · {{ (8 - s.to_pct/100*8)|round(1) }}h free</span>
+                        </div>
+                    </div>
+
+                    <!-- Action -->
+                    <div>
+                        <form method="POST" action="{{ url_for('apply_redistribution', schedule_id=s.schedule_id) }}">
+                            <input type="hidden" name="new_faculty_id" value="{{ s.to_id }}">
+                            <button type="submit" class="btn btn-primary" style="padding:0.6rem 1.25rem;white-space:nowrap;">
+                                ✓ Apply
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% elif overloaded %}
+            <div class="card premium-card" style="text-align:center;padding:3rem;margin-bottom:2rem;">
+                <i data-lucide="info" style="width:40px;height:40px;opacity:0.4;margin-bottom:1rem;"></i>
+                <p style="color:var(--text-muted);">Overloaded faculty detected, but no redistributable <em>weekly schedule entries</em> were found for today.</p>
+                <p style="font-size:0.85rem;color:var(--text-muted);">Add schedule entries via <a href="{{ url_for('schedule_optimization') }}">Workload Schedule</a> to enable auto-suggestions.</p>
+            </div>
+            {% endif %}
+
+            <!-- Available Faculty Table -->
+            <div class="card premium-card">
+                <h3 style="font-weight:800;font-size:1.1rem;margin-bottom:1.5rem;">Available Faculty (Capacity to Absorb Tasks)</h3>
+                {% if available %}
+                <div class="table-wrapper premium-table">
+                    <table class="academic-table">
+                        <thead>
+                            <tr>
+                                <th>Faculty Name</th>
+                                <th>Today's Workload</th>
+                                <th>Hours Used</th>
+                                <th>Hours Free</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in available %}
+                            {% set c = 'yellow' if f.percentage >= 50 else 'green' %}
+                            {% set hex = '#f59e0b' if c == 'yellow' else '#22c55e' %}
+                            <tr>
+                                <td><strong>{{ f.name }}</strong></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <div class="status-bar-bg" style="width:100px;">
+                                            <div class="status-bar-fill" style="width:{{ [f.percentage,100]|min }}%;background:{{ hex }};"></div>
+                                        </div>
+                                        <span style="color:{{ hex }};font-weight:700;">{{ f.percentage|round(0)|int }}%</span>
+                                    </div>
+                                </td>
+                                <td>{{ f.total_hours }}h</td>
+                                <td style="color:#22c55e;font-weight:700;">{{ f.capacity_left }}h</td>
+                                <td><span class="capacity-chip chip-{{ c }}">{{ 'Balanced' if c == 'yellow' else 'Light' }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="color:var(--text-muted);text-align:center;padding:2rem;">All faculty are currently at or above 90% — no available capacity for redistribution.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+
+    const names = {{ faculty_status | map(attribute='name') | list | tojson }};
+    const pcts  = {{ faculty_status | map(attribute='percentage') | list | tojson }};
+    const colors = pcts.map(p => p >= 90 ? '#ef4444' : p >= 50 ? '#f59e0b' : '#22c55e');
+
+    const ctx = document.getElementById('overviewChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: names,
+            datasets: [{
+                label: 'Workload %',
+                data: pcts,
+                backgroundColor: colors,
+                borderRadius: 8
+            }, {
+                label: 'Limit (90%)',
+                data: names.map(() => 90),
+                type: 'line',
+                borderColor: '#ef4444',
+                borderDash: [6, 4],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true, max: 110, grid: { borderDash: [3,4] } }
+            }
+        }
+    });
+</script>
+</body>
+</html>

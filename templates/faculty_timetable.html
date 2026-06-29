@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Schedule - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .timetable-grid {
+            display: grid;
+            grid-template-columns: 120px repeat(9, 1fr);
+            gap: 1px;
+            background-color: var(--border-color);
+            border: 1px solid var(--border-color);
+            margin-top: 1.5rem;
+        }
+        .header-cell, .day-cell, .slot-cell {
+            background-color: white;
+            padding: 1rem;
+            text-align: center;
+            font-size: 0.85rem;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .header-cell {
+            background-color: var(--secondary-blue);
+            color: white;
+            font-weight: 700;
+        }
+        .day-cell {
+            font-weight: 700;
+            background-color: var(--accent-blue);
+            color: var(--primary-blue);
+        }
+        .break-cell {
+            background-color: #f8fafc;
+            font-style: italic;
+            color: var(--text-muted);
+        }
+        .assignment {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .assignment-course { font-weight: 700; display: block; }
+        .assignment-section { font-size: 0.7rem; opacity: 0.9; }
+    </style>
+</head>
+<body data-role="faculty">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('faculty_personal_timetable') }}" class="nav-link active">
+                    <i data-lucide="calendar"></i> <span>My Schedule</span>
+                </a>
+                <a href="{{ url_for('add_teaching') }}" class="nav-link">
+                    <i data-lucide="book-open"></i> <span>Log Hours</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="page-breadcrumb">Faculty / Personal Timetable</span>
+                </div>
+                <div class="header-right">
+                    <button class="btn-primary" onclick="window.print()">
+                        <i data-lucide="printer"></i> Print Schedule
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="section-header">
+                    <h1 class="section-title">My Academic Schedule</h1>
+                    <p style="color: var(--text-muted);">Weekly workload distribution across sections.</p>
+                </div>
+
+                <div class="card" style="margin-top: 0;">
+                        <div class="timetable-grid">
+                            <div class="header-cell">DAY / TIME</div>
+                            {% for ts in timeslots %}
+                                <div class="header-cell">
+                                    {{ 'Period ' ~ ts['period_number'] if ts['period_number'] > 0 else 'Interval' }}<br>
+                                    <small style="font-weight: 400;">{{ ts['start_time'] }}</small>
+                                </div>
+                            {% endfor %}
+
+                            {% for day in days %}
+                                <div class="day-cell">{{ day }}</div>
+                                {% for ts in timeslots %}
+                                    <div class="slot-cell {% if ts['is_break'] %}break-cell{% endif %}">
+                                        {% if ts['is_break'] %}
+                                            {{ 'LUNCH' if '12:50' in ts['start_time'] else 'BREAK' }}
+                                        {% else %}
+                                            {% set assignment = grid[day][ts['id']] %}
+                                            {% if assignment %}
+                                                <div class="assignment">
+                                                    <span class="assignment-course">{{ assignment['course_name'] }}</span>
+                                                    <span class="assignment-section">Section: {{ assignment['section_name'] }}</span>
+                                                    <small style="display: block;">Room: {{ assignment['room_no'] }}</small>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Timetable - Faculty Workload System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar glass">
+        <div class="brand">FACULTY TRACKER</div>
+        <div class="nav-links">
+            <a href="/" class="btn" style="color: white">Home</a>
+            <a href="/logout" class="btn" style="color: #ff4b2b">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>My Schedule</h1>
+        
+        <div class="card glass" style="margin-top: 2rem; overflow-x: auto;">
+            {% if schedule %}
+            <table style="width: 100%; border-collapse: collapse; color: var(--text-main);">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--glass-border);">
+                        <th style="padding: 1rem; text-align: left;">Day</th>
+                        <th style="padding: 1rem; text-align: left;">Slot</th>
+                        <th style="padding: 1rem; text-align: left;">Subject</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule %}
+                    <tr style="border-bottom: 1px solid var(--glass-border);">
+                        <td style="padding: 1rem;">{{ item.day }}</td>
+                        <td style="padding: 1rem; color: var(--primary);">{{ item.slot }}</td>
+                        <td style="padding: 1rem;">{{ item.subject }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="padding: 2rem; text-align: center; color: var(--text-muted);">No classes scheduled yet. Please wait for the HOD to generate the timetable.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

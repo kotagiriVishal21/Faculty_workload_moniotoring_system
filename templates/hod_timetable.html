@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.Tech Timetable - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .timetable-container {
+            width: 100%;
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            margin-top: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .timetable-grid {
+            display: grid;
+            /* 1 day column + 9 slots (7 periods + 2 breaks) */
+            grid-template-columns: 120px repeat(9, minmax(110px, 1fr));
+            gap: 0; /* Changed to 0 for solid border look */
+            background-color: var(--border-color);
+            min-width: 1100px;
+        }
+
+        .header-cell,
+        .day-cell,
+        .slot-cell {
+            background-color: white;
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.8rem;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 0.5px solid var(--border-color); /* Real table borders */
+        }
+
+        .header-cell {
+            background: linear-gradient(to bottom, #f8fafc, #edf2f7);
+            color: var(--primary-blue);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            min-height: 60px;
+            border-bottom: 2px solid var(--primary-blue);
+        }
+
+        .day-cell {
+            font-weight: 800;
+            background-color: #f1f5f9;
+            color: var(--primary-blue);
+            border-right: 2px solid var(--primary-blue);
+        }
+
+        .break-cell {
+            background-color: #f8fafc;
+            font-style: italic;
+            color: #94a3b8;
+            font-weight: 800;
+            font-size: 0.7rem;
+            letter-spacing: 0.2em;
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            max-width: 40px;
+        }
+
+        .assignment {
+            background-color: #ebf4ff;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 0.5rem;
+            border-radius: 8px;
+            width: 90%;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .assignment:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            background-color: #dbeafe;
+        }
+
+        .assignment-course {
+            font-weight: 800;
+            color: var(--premium-blue);
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+
+        .assignment-faculty {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .room-tag {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 0.65rem;
+            background: var(--primary-blue);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+    </style>
+</head>
+
+<body data-role="hod">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('hod_dashboard') }}" class="nav-link">
+                    <i data-lucide="check-square"></i> <span>Approvals</span>
+                </a>
+                <a href="{{ url_for('manage_timetable') }}" class="nav-link active">
+                    <i data-lucide="calendar"></i> <span>Timetable</span>
+                </a>
+                <a href="{{ url_for('accreditation_reports') }}" class="nav-link">
+                    <i data-lucide="file-text"></i> <span>Reports</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="page-breadcrumb">Management / B.Tech Timetable</span>
+                </div>
+                <div class="header-right">
+                    <form method="GET" style="display: flex; gap: 10px; align-items: center;">
+                        <label style="font-size: 0.9rem; font-weight: 600;">Switch Section:</label>
+                        <select name="section_id" class="form-control" style="width: 120px;"
+                            onchange="this.form.submit()">
+                            {% for s in sections %}
+                            <option value="{{ s['id'] }}" {% if s['id']==current_section %}selected{% endif %}>{{
+                                s['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="dashboard-grid" style="grid-template-columns: 1fr 320px; gap: 2rem;">
+                    <div>
+                        <div class="section-header">
+                            <h1 class="section-title">
+                                Schedule for
+                                {% for s in sections %}
+                                {% if s['id'] == current_section %}{{ s['name'] }}{% endif %}
+                                {% endfor %}
+                            </h1>
+                            <p style="color: var(--text-muted);">Institutional timetable for Academic Year 2025-26.</p>
+                        </div>
+
+                        <div class="timetable-container">
+                            <div class="timetable-grid">
+                                <div class="header-cell">DAY / TIME</div>
+                                {% for ts in timeslots %}
+                                <div class="header-cell">
+                                    <span style="font-size: 0.65rem; color: #64748b; margin-bottom: 2px;">{{ ts['start_time'] }} - {{ ts['end_time'] }}</span>
+                                    {% if ts['is_break'] %}
+                                        <span style="color: #94a3b8; font-weight: 800;">{% if '12:50' in ts['start_time'] %}LUNCH{% else %}BREAK{% endif %}</span>
+                                    {% else %}
+                                        <span>PERIOD {{ ts['period_number'] }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+
+
+                                {% for day in days %}
+                                <div class="day-cell">{{ day }}</div>
+                                {% for ts in timeslots %}
+                                <div class="slot-cell {% if ts['is_break'] %}break-cell{% endif %}">
+                                    {% if ts['is_break'] %}
+                                    {{ 'LUNCH' if '12:50' in ts['start_time'] else 'BREAK' }}
+                                    {% else %}
+                                    {% set assignment = grid[day][ts['id']] %}
+                                    {% if assignment %}
+                                    <div class="assignment">
+                                        <span class="assignment-course">{{ assignment['subject_code'] }}</span>
+                                        <span class="assignment-faculty">{{ assignment['faculty_name'] }}</span>
+                                        <span class="room-tag">Room: {{ assignment['room_no'] }}</span>
+                                    </div>
+                                    {% else %}
+                                    <button class="btn-primary"
+                                        style="padding: 2px 6px; font-size: 0.65rem; background: #e2e8f0; color: #64748b; border: none; border-radius: 4px;"
+                                        onclick="openAssignment('{{ day }}', {{ ts['id'] }})">Assign</button>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside class="card" id="assignmentForm"
+                        style="display: none; align-self: start; top: 2rem; position: sticky;">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--primary-blue);">Assignment Box</h3>
+                        <form method="POST">
+                            <input type="hidden" name="day" id="form-day">
+                            <input type="hidden" name="timeslot_id" id="form-slot">
+
+                            <div class="form-group">
+                                <label class="form-label">Course Subject</label>
+                                <select name="course_id" class="form-control" required>
+                                    <option value="" disabled selected>Select Subject</option>
+                                    {% for c in courses %}
+                                    <option value="{{ c['id'] }}">{{ c['course_name'] }} ({{ c['subject_code'] }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Instructor</label>
+                                <select name="faculty_id" class="form-control" required>
+                                    <option value="" disabled selected>Select Faculty</option>
+                                    {% for f in faculty %}
+                                    <option value="{{ f['id'] }}">{{ f['name'] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Room Number</label>
+                                <input type="text" name="room" class="form-control" placeholder="e.g. 3017" required>
+                            </div>
+
+                            <div
+                                style="background: #f8fafc; padding: 0.75rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
+                                    <strong>Rules:</strong> 18h cap | Lab=4cr/h | Theory=3cr/h | Acad=1cr/h | Max 2
+                                    faculty/course.
+                                </p>
+                            </div>
+
+                            <button type="submit" class="btn-primary" style="width: 100%;">Save Assignment</button>
+                            <button type="button" class="btn-primary"
+                                style="width: 100%; margin-top: 8px; background: transparent; color: var(--text-muted); border: 1px solid var(--border-color);"
+                                onclick="document.getElementById('assignmentForm').style.display='none'">Cancel</button>
+                        </form>
+                    <aside class="card" id="autoGenForm" style="align-self: start; top: 2rem; position: sticky; border: 1px dashed var(--secondary-blue);">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--secondary-blue);">Auto-Fill Tool</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Automatically assign available faculty to this section.</p>
+                        <form action="{{ url_for('auto_generate') }}" method="POST">
+                            <input type="hidden" name="section_id" value="{{ current_section }}">
+                            
+                            <div class="form-group">
+                                <label class="form-label">Course to Fill</label>
+                                <select name="course_id" class="form-control" required>
+                                    <option value="" disabled selected>Select Subject</option>
+                                    {% for c in courses %}
+                                    <option value="{{ c['id'] }}">{{ c['course_name'] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Total Hours Needed</label>
+                                <input type="number" name="hours" class="form-control" placeholder="e.g. 4" min="1" max="6" required>
+                            </div>
+
+                            <button type="submit" class="btn-primary" style="width: 100%; background: var(--secondary-blue);">Execute Auto-Gen</button>
+                        </form>
+                    </aside>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        function openAssignment(day, slot) {
+            document.getElementById('form-day').value = day;
+            document.getElementById('form-slot').value = slot;
+            document.getElementById('assignmentForm').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

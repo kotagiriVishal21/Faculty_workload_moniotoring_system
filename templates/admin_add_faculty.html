@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Member - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body data-role="admin">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('manage_departments') }}" class="nav-link">
+                    <i data-lucide="building-2"></i> <span>Departments</span>
+                </a>
+                <a href="{{ url_for('manage_courses') }}" class="nav-link">
+                    <i data-lucide="book-open"></i> <span>Catalog</span>
+                </a>
+                <a href="{{ url_for('manage_users') }}" class="nav-link active">
+                    <i data-lucide="users"></i> <span>Users</span>
+                </a>
+                <a href="{{ url_for('faculty_domain') }}" class="nav-link">
+                    <i data-lucide="award"></i> <span>Expertise</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="page-breadcrumb">Admin / Onboard Member</span>
+                </div>
+                <div class="header-right">
+                    <div class="user-profile">
+                        <div class="user-avatar">A</div>
+                        <div class="user-info">
+                            <span class="user-name">System Administrator</span>
+                            <span class="user-role">Full Access</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="section-header">
+                    <h1 class="section-title">Institutional Onboarding</h1>
+                    <p style="color: var(--text-muted);">Establish new professional accounts and define departmental affiliations.</p>
+                </div>
+
+                <div class="card" style="max-width: 800px; margin-top: 0;">
+                    <form action="/admin/add_faculty" method="POST">
+                        <div class="form-group">
+                            <label class="form-label">Full Legal Name</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Dr. John Wick" required>
+                        </div>
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0;">
+                            <div class="form-group">
+                                <label class="form-label">Professional Email</label>
+                                <input type="email" name="email" class="form-control" placeholder="staff@university.edu" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Temporary Password</label>
+                                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0;">
+                            <div class="form-group">
+                                <label class="form-label">Institutional Role</label>
+                                <select name="role" class="form-control">
+                                    <option value="faculty">Faculty Member</option>
+                                    <option value="hod">Head of Department (HoD)</option>
+                                    <option value="admin">System Administrator</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Primary Department</label>
+                                <select name="dept_id" class="form-control">
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div style="margin-top: 2rem;">
+                            <button type="submit" class="btn-primary">Onboard This Member</button>
+                            <a href="{{ url_for('manage_users') }}" style="margin-left: 1rem; color: var(--text-muted); text-decoration: none;">Return to Directory</a>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

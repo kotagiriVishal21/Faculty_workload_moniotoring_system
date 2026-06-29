@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Teaching - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body data-role="faculty">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('add_teaching') }}" class="nav-link active">
+                    <i data-lucide="plus-circle"></i> <span>Teaching Log</span>
+                </a>
+                <a href="{{ url_for('add_activity') }}" class="nav-link">
+                    <i data-lucide="clipboard-list"></i> <span>Academic Tasks</span>
+                </a>
+                <a href="{{ url_for('add_research') }}" class="nav-link">
+                    <i data-lucide="microscope"></i> <span>Research Port</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="page-breadcrumb">Faculty / Record Teaching</span>
+                </div>
+                <div class="header-right">
+                    <div class="user-profile">
+                        <div class="user-avatar">{{ session['name'][0] }}</div>
+                        <div class="user-info">
+                            <span class="user-name">{{ session['name'] }}</span>
+                            <span class="user-role">Faculty Member</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="section-header">
+                    <h1 class="section-title">Log Teaching Hours</h1>
+                    <p style="color: var(--text-muted);">Record your weekly instructional efforts for the current semester.</p>
+                </div>
+
+                <div class="card" style="max-width: 800px; margin-top: 0;">
+                    <form method="POST">
+                        <div class="form-group">
+                            <label class="form-label">Assigned Course</label>
+                            <select name="course_id" class="form-control" required>
+                                {% for c in courses %}
+                                <option value="{{ c.id }}">{{ c.course_name }} ({{ c.subject_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 0;">
+                            <div class="form-group">
+                                <label class="form-label">Class Section</label>
+                                <input type="text" name="section" class="form-control" placeholder="e.g. CSE-A" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hours Per Week</label>
+                                <input type="number" name="hours" class="form-control" placeholder="e.g. 4" required>
+                            </div>
+                        </div>
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                            <div class="form-group">
+                                <label class="form-label">Workload Type</label>
+                                <select name="is_lab" class="form-control">
+                                    <option value="0">Theory (3 Credits/Hr)</option>
+                                    <option value="1">Lab (4 Credits/Hr)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Date</label>
+                                <input type="date" name="date" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="dashboard-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                            <div class="form-group">
+                                <label class="form-label">Academic Semester</label>
+                                <select name="semester" class="form-control">
+                                    <option>Fall 2024</option>
+                                    <option>Spring 2025</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="margin-top: 2rem;">
+                            <button type="submit" class="btn-primary">Save Teaching Record</button>
+                            <a href="{{ url_for('index') }}" style="margin-left: 1rem; color: var(--text-muted); text-decoration: none;">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

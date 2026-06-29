@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Accreditation Report - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .print-only { display: none; }
+        @media print {
+            .sidebar, .top-header, .no-print { display: none !important; }
+            .main-wrapper { margin-left: 0 !important; }
+            .content-area { padding: 0 !important; }
+            .print-only { display: block; text-align: center; margin-bottom: 2rem; }
+            .card { box-shadow: none !important; border: 1px solid #ccc !important; page-break-inside: avoid; }
+            body { background: white; }
+        }
+        
+        .faculty-section { margin-bottom: 3rem; background: var(--white); border-radius: 8px; padding: 2rem; box-shadow: var(--card-shadow); }
+        .faculty-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        .faculty-name { font-size: 1.5rem; font-weight: 800; color: var(--primary-slate); }
+        .category-title { font-size: 1.1rem; font-weight: 700; color: var(--premium-blue); margin: 1.5rem 0 0.75rem 0; display: flex; align-items: center; gap: 8px; }
+        
+        table.report-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
+        table.report-table th, table.report-table td { border: 1px solid var(--border-color); padding: 0.75rem; text-align: left; }
+        table.report-table th { background-color: var(--bg-main); font-weight: 600; color: var(--text-muted); }
+    </style>
+</head>
+<body data-role="hod">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo"><i data-lucide="graduation-cap"></i></div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a>
+                <a href="{{ url_for('hod_dashboard') }}" class="nav-link"><i data-lucide="check-square"></i> <span>Approvals</span></a>
+                <a href="{{ url_for('manage_timetable') }}" class="nav-link"><i data-lucide="calendar"></i> <span>Timetable</span></a>
+                <a href="{{ url_for('task_distribution') }}" class="nav-link"><i data-lucide="users"></i> <span>Task Delegation</span></a>
+                <a href="{{ url_for('schedule_optimization') }}" class="nav-link"><i data-lucide="clock"></i> <span>Workload Schedule</span></a>
+                <a href="{{ url_for('redistribution') }}" class="nav-link"><i data-lucide="shuffle"></i> <span>Redistribution</span></a>
+                <a href="{{ url_for('hod_accreditation') }}" class="nav-link active"><i data-lucide="file-text"></i> <span>Reports</span></a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link"><i data-lucide="log-out"></i> <span>Sign Out</span></a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left"><span class="user-name">HOD Portal: {{ session['name'] }}</span></div>
+                <div class="header-right header-actions">
+                    <button class="btn-primary no-print" onclick="window.print()" style="display: flex; gap: 8px; align-items: center;">
+                        <i data-lucide="printer" size="18"></i> Print NBA Report
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="print-only">
+                    <h1>NBA Accreditation - Faculty Workload & Activity Report</h1>
+                    <p>Generated on: <script>document.write(new Date().toLocaleDateString());</script></p>
+                </div>
+                
+                <div class="section-header no-print">
+                    <h1 class="section-title">Institutional Accreditation Records</h1>
+                    <p style="color: var(--text-muted);">Comprehensive line-by-line breakdown of all faculty activities.</p>
+                </div>
+
+                {% for f in report_data %}
+                <div class="faculty-section">
+                    <div class="faculty-header">
+                        <div>
+                            <div class="faculty-name">{{ f.info.name }}</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem;">ID: {{ f.info.id }} | {{ f.info.email }}</div>
+                        </div>
+                    </div>
+
+                    <!-- TEACHING -->
+                    <h3 class="category-title"><i data-lucide="book-open" size="18"></i> Teaching Workload</h3>
+                    {% if f.teaching %}
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Date Logged</th>
+                                <th>Semester</th>
+                                <th>Course / Subject</th>
+                                <th>Section</th>
+                                <th>Type</th>
+                                <th style="text-align: right;">Weekly Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in f.teaching %}
+                            <tr>
+                                <td>{{ t.date }}</td>
+                                <td>{{ t.semester }}</td>
+                                <td>{{ t.course_name or 'N/A' }}</td>
+                                <td>{{ t.section_name or 'N/A' }}</td>
+                                <td>{{ 'Lab' if t.is_lab == 1 else 'Theory' }}</td>
+                                <td style="text-align: right; font-weight: 600;">{{ t.hours_per_week }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">No teaching workload recorded.</p>
+                    {% endif %}
+
+                    <!-- ACADEMIC -->
+                    <h3 class="category-title"><i data-lucide="award" size="18"></i> Academic & Mentoring Activities</h3>
+                    {% if f.academic %}
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Activity Type</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Credit Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in f.academic %}
+                            <tr>
+                                <td>{{ a.date }}</td>
+                                <td>{{ a.activity_type }}</td>
+                                <td>{{ a.description }}</td>
+                                <td>{{ a.status }}</td>
+                                <td style="text-align: right; font-weight: 600;">{{ a.hours }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">No academic activities recorded.</p>
+                    {% endif %}
+
+                    <!-- RESEARCH -->
+                    <h3 class="category-title"><i data-lucide="microscope" size="18"></i> Research & Publications</h3>
+                    {% if f.research %}
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Publication Title</th>
+                                <th>Designation / Type</th>
+                                <th>Journal / Event</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in f.research %}
+                            <tr>
+                                <td>{{ r.year }}</td>
+                                <td><strong>{{ r.title }}</strong></td>
+                                <td>{{ r.type }}</td>
+                                <td>{{ r.journal }}</td>
+                                <td>{{ r.status }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">No research records submitted.</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+            </main>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

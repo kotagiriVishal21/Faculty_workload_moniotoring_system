@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Faculty Workload System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-role="{{ role }}">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link active">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                
+                {% if role == 'admin' %}
+                <a href="{{ url_for('manage_departments') }}" class="nav-link">
+                    <i data-lucide="building-2"></i> <span>Departments</span>
+                </a>
+                <a href="{{ url_for('manage_courses') }}" class="nav-link">
+                    <i data-lucide="book-open"></i> <span>Course Catalog</span>
+                </a>
+                <a href="{{ url_for('manage_users') }}" class="nav-link">
+                    <i data-lucide="users"></i> <span>User Directory</span>
+                </a>
+                <a href="{{ url_for('faculty_domain') }}" class="nav-link">
+                    <i data-lucide="award"></i> <span>Expertise</span>
+                </a>
+                {% elif role == 'faculty' %}
+                <a href="{{ url_for('add_teaching') }}" class="nav-link">
+                    <i data-lucide="plus-circle"></i> <span>Teaching Log</span>
+                </a>
+                <a href="{{ url_for('add_activity') }}" class="nav-link">
+                    <i data-lucide="clipboard-list"></i> <span>Academic Tasks</span>
+                </a>
+                <a href="{{ url_for('add_research') }}" class="nav-link">
+                    <i data-lucide="microscope"></i> <span>Research Port</span>
+                </a>
+                {% elif role == 'hod' %}
+                <a href="{{ url_for('hod_dashboard') }}" class="nav-link">
+                    <i data-lucide="check-square"></i> <span>Approvals</span>
+                </a>
+                {% endif %}
+
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="user-name">Welcome, {{ user }}</span>
+                </div>
+                <div class="header-right header-actions">
+                    <i data-lucide="line-chart" class="header-action-btn"></i>
+                    <i data-lucide="mail" class="header-action-btn"></i>
+                    <i data-lucide="settings" class="header-action-btn"></i>
+                    <!-- Notification Bell -->
+                    <div style="position:relative;cursor:pointer;" onclick="toggleAlertPanel()" title="Class Reminders">
+                        <i data-lucide="bell" class="header-action-btn" style="color:var(--text-muted);"></i>
+                        <span id="alertBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:white;font-size:0.65rem;font-weight:800;border-radius:99px;padding:1px 5px;min-width:16px;text-align:center;">0</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Floating Alert Panel -->
+            <div id="alertPanel" style="display:none;position:fixed;top:68px;right:1.5rem;width:360px;z-index:9999;background:var(--bg-card);border:1px solid var(--border-color);border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,0.18);overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border-color);">
+                    <span style="font-weight:800;font-size:0.95rem;">🔔 Class Reminders</span>
+                    <button onclick="toggleAlertPanel()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);">✕</button>
+                </div>
+                <div id="alertPanelBody" style="max-height:400px;overflow-y:auto;padding:0.75rem;"></div>
+            </div>
+
+            <main class="content-area">
+                <div class="dashboard-tabs">
+                    <div class="tab-item active">Dashboard</div>
+                    <div class="tab-item">Activities</div>
+                    <div class="tab-item">Research</div>
+                    <div class="tab-item">Reports</div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- KPI Cards -->
+                    <div class="stat-card" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: white; border: none;">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4 style="color: rgba(255,255,255,0.8);">Teaching Load</h4></span>
+                            <span class="stat-value" style="color: white; font-size: 2.5rem;">{{ teaching }}</span>
+                        </div>
+                        <i data-lucide="book-open" size="36" style="opacity: 0.3; position: absolute; right: 1.5rem; bottom: 1.5rem;"></i>
+                    </div>
+
+                    <div class="stat-card" style="background: linear-gradient(135deg, #fb923c, #f97316); color: white; border: none;">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4 style="color: rgba(255,255,255,0.8);">Academic Activities</h4></span>
+                            <span class="stat-value" style="color: white; font-size: 2.5rem;">{{ academic }}</span>
+                        </div>
+                        <i data-lucide="award" size="36" style="opacity: 0.3; position: absolute; right: 1.5rem; bottom: 1.5rem;"></i>
+                    </div>
+
+                    <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6, #a855f7); color: white; border: none;">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4 style="color: rgba(255,255,255,0.8);">Research Papers</h4></span>
+                            <span class="stat-value" style="color: white; font-size: 2.5rem;">{{ research / 5 }}</span>
+                        </div>
+                        <div style="position: absolute; right: 1.5rem; bottom: 1.5rem; text-align: right;">
+                            <i data-lucide="microscope" size="36" style="opacity: 0.3; display: block;"></i>
+                            <span style="font-size: 0.8rem; opacity: 0.8; font-weight: 600;">{{ research }} Credits</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ CLASS CONDUCT TRACKING TABLE ═══ -->
+                {% if role == 'faculty' %}
+                <div class="card premium-card" style="margin-top:1.5rem;margin-bottom:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+                        <div>
+                            <h3 style="font-weight:800;margin:0;">📅 Today's Class Schedule</h3>
+                            <p style="color:var(--text-muted);font-size:0.8rem;margin:4px 0 0;">Mark each class as Conducted or Not Conducted</p>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:0.4rem 1rem;font-size:0.82rem;">
+                                Today's Conducted Points: <strong id="todayPoints" style="color:var(--premium-blue);">0</strong>
+                            </div>
+                            <button onclick="requestNotifPermission()" id="notifBtn" style="background:var(--premium-blue);color:white;border:none;border-radius:10px;padding:0.4rem 1rem;font-size:0.8rem;font-weight:700;cursor:pointer;">🔔 Enable Alerts</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper premium-table" id="conductTableWrapper">
+                        <table class="academic-table" id="conductTable">
+                            <thead>
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Section</th>
+                                    <th>Time</th>
+                                    <th>Room</th>
+                                    <th style="text-align:center;">Status</th>
+                                    <th style="text-align:center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conductBody">
+                                <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">Loading schedule...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Not Conducted Reason Modal -->
+                <div id="notConductedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:var(--bg-card);border-radius:18px;padding:2rem;width:100%;max-width:420px;margin:1rem;">
+                        <h3 style="font-weight:800;margin-bottom:1.25rem;">❌ Reason for Not Conducting</h3>
+                        <input type="hidden" id="ncTimetableId">
+                        <div style="display:grid;gap:0.5rem;margin-bottom:1.25rem;">
+                            <label style="cursor:pointer;"><input type="radio" name="ncReason" value="Faculty on Leave"> Faculty on Leave</label>
+                            <label style="cursor:pointer;"><input type="radio" name="ncReason" value="Class Cancelled"> Class Cancelled</label>
+                            <label style="cursor:pointer;"><input type="radio" name="ncReason" value="Student Event"> Student Event</label>
+                            <label style="cursor:pointer;"><input type="radio" name="ncReason" value="Holiday"> Holiday</label>
+                            <label style="cursor:pointer;"><input type="radio" name="ncReason" value="Other"> Other</label>
+                        </div>
+                        <textarea id="ncOtherText" placeholder="Additional notes (optional)..." style="width:100%;border:1px solid var(--border-color);border-radius:10px;padding:0.6rem;resize:none;height:70px;background:var(--bg-main);color:var(--text-primary);font-size:0.85rem;box-sizing:border-box;margin-bottom:1rem;"></textarea>
+                        <div style="display:flex;gap:0.75rem;">
+                            <button onclick="submitNotConducted()" class="btn btn-primary" style="flex:1;">Submit</button>
+                            <button onclick="closeNCModal()" style="flex:1;background:var(--bg-main);border:1px solid var(--border-color);border-radius:10px;cursor:pointer;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="section-header" style="margin-top: 2.5rem; margin-bottom: 1rem;">
+                    <h2 class="section-title">Time Analysis (7-Day Rolling Window)</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Workload calculated against 8-hour maximum workday. Green (0-50%), Yellow (50-80%), Red (80%+)</p>
+                </div>
+                
+                <div class="dashboard-grid" id="timeAnalysisCards" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="card" style="display: flex; justify-content: center; align-items: center; min-height: 120px;"><span style="color: var(--text-muted)">Loading analysis...</span></div>
+                </div>
+
+                <div class="card" style="margin-top: 1.5rem;">
+                    <h3 style="margin-bottom: 1.5rem; font-weight: 700;">Workload Trend (Past 3 Days & Next 3 Days)</h3>
+                    <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="timeAnalysisChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid" style="margin-top: 2rem; grid-template-columns: 1fr;">
+                    <!-- Workload Summary (Pie/Doughnut) -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem; font-weight: 700;">My Workload Summary</h3>
+                        <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="personalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Updates -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3 style="margin-bottom: 1.5rem; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Recent Updates</h3>
+                    <div class="updates-list">
+                        <div class="update-item">
+                            <div class="update-icon" style="background-color: var(--vibrant-red);">
+                                <i data-lucide="file-text" size="18"></i>
+                            </div>
+                            <span class="update-text">Project Guidance Logged</span>
+                        </div>
+                        <div class="update-item">
+                            <div class="update-icon" style="background-color: var(--vibrant-green);">
+                                <i data-lucide="book-open" size="18"></i>
+                            </div>
+                            <span class="update-text">Paper Published: AI in Education</span>
+                        </div>
+                        <div class="update-item">
+                            <div class="update-icon" style="background-color: var(--vibrant-blue);">
+                                <i data-lucide="mail" size="18"></i>
+                            </div>
+                            <span class="update-text">Mentoring Session Completed</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const role = document.body.getAttribute('data-role');
+        const chartColors = [
+            '#3b82f6', // blue
+            '#fb923c', // orange
+            '#22c55e', // green
+            '#ef4444', // red
+            '#8b5cf6', // purple
+            '#f59e0b'  // amber
+        ];
+
+        if (role === 'faculty' || role === 'hod' || role === 'admin') {
+            // Workload Summary Chart (Doughnut)
+            fetch('/api/personal_workload')
+                .then(res => res.json())
+                .then(data => {
+                    const ctx = document.getElementById('personalChart').getContext('2d');
+                    document.getElementById('researchValue').innerText = data.Research / 5; // Assuming weight of 5
+                    document.getElementById('adminValue').innerText = Math.floor(data.Academic / 1); // Placeholder logic
+                    
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(data),
+                            datasets: [{
+                                data: Object.values(data),
+                                backgroundColor: [chartColors[0], chartColors[1], chartColors[2]],
+                                borderWidth: 0,
+                                hoverOffset: 10
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '75%',
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        usePointStyle: true,
+                                        font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+
+            // Faculty Comparison Chart (Bar)
+            fetch('/api/workload_comparison')
+                .then(res => res.json())
+                .then(data => {
+                    const ctx = document.getElementById('comparisonChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.name),
+                            datasets: [{
+                                label: 'Workload',
+                                data: data.map(d => d.workload),
+                                backgroundColor: data.map((_, i) => chartColors[i % chartColors.length]),
+                                borderRadius: 8,
+                                barThickness: 25
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { display: true, color: '#f1f5f9' },
+                                    ticks: { font: { family: 'Plus Jakarta Sans' } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { family: 'Plus Jakarta Sans' } }
+                                }
+                            }
+                        }
+                    });
+                });
+        }
+    </script>
+
+    <!-- AI Chatbot UI (Bulletproof) -->
+    <style>
+        .chatbot-trigger {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            width: 70px !important;
+            height: 70px !important;
+            background: #1d4ed8 !important; /* Fallback */
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+            color: white !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.6) !important;
+            cursor: pointer !important;
+            z-index: 10000 !important;
+            border: 2px solid rgba(255, 255, 255, 0.4) !important;
+            animation: pulse-blue-debug 2s infinite !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            text-align: center !important;
+            line-height: 1 !important;
+        }
+        @keyframes pulse-blue-debug {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+
+    <div class="chatbot-trigger" onclick="toggleChatbot()">
+        <i data-lucide="message-square" style="width: 28px; height: 28px; margin-bottom: 2px;"></i>
+        <span>AI</span>
+    </div>
+
+    <div class="chatbot-window" id="chatbotWindow" style="z-index: 10001;">
+        <div class="chat-header">
+            <span style="font-weight: 700;">FacultyPulse AI</span>
+            <i data-lucide="x" style="cursor: pointer;" onclick="toggleChatbot()"></i>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                Hello! I'm your FacultyPulse assistant. Ask me anything about your workload or research data.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Query my data..." onkeypress="handleChatKey(event)">
+            <button class="chat-send" onclick="sendChatMessage()">
+                <i data-lucide="send"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>     // Initialize Icons
+        lucide.createIcons();
+
+        // Chatbot Logic
+        function toggleChatbot() {
+            const win = document.getElementById('chatbotWindow');
+            win.classList.toggle('active');
+        }
+
+        function handleChatKey(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessage(text, role) {
+            const container = document.getElementById('chatMessages');
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.innerText = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            input.value = '';
+
+            fetch('/api/chatbot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                addMessage(data.response, 'bot');
+            })
+            .catch(() => {
+                addMessage("Sorry, I encountered an error processing your request.", "bot");
+            });
+        }
+    </script>
+    </script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fetch Time Analysis Data
+            fetch(`/api/time_analysis/{{ session['user_id'] }}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) return;
+                
+                const todayIdx = data.findIndex(d => d.label === 'Today');
+                const cardsData = [data[todayIdx-1], data[todayIdx], data[todayIdx+1]];
+                
+                const cardsHtml = cardsData.map(d => {
+                    let colorHex = '#22c55e';
+                    if (d.status === 'yellow') colorHex = '#f59e0b';
+                    if (d.status === 'red') colorHex = '#ef4444';
+                    
+                    return `
+                    <div class="card" style="border-top: 4px solid ${colorHex};">
+                        <h4 style="color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase;">${d.label}</h4>
+                        <div style="display: flex; align-items: baseline; gap: 8px;">
+                            <span style="font-size: 2rem; font-weight: 800; color: var(--primary-slate);">${d.total_hours}h</span>
+                            <span style="font-size: 1rem; color: ${colorHex}; font-weight: 600;">${d.percentage}%</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                            Teaching: ${d.teaching_hours}h | Other: ${d.academic_hours}h
+                        </div>
+                    </div>`;
+                }).join('');
+                document.getElementById('timeAnalysisCards').innerHTML = cardsHtml;
+                
+                const ctxTrend = document.getElementById('timeAnalysisChart').getContext('2d');
+                new Chart(ctxTrend, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.label),
+                        datasets: [{
+                            label: 'Workload %',
+                            data: data.map(d => d.percentage),
+                            backgroundColor: data.map(d => {
+                                if(d.status === 'red') return 'rgba(239, 68, 68, 0.8)';
+                                if(d.status === 'yellow') return 'rgba(245, 158, 11, 0.8)';
+                                return 'rgba(34, 197, 94, 0.8)';
+                            }),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => `${ctx.raw}% (${data[ctx.dataIndex].total_hours} hours)`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                max: Math.max(100, ...data.map(d=>d.percentage)) + 10,
+                                grid: { borderDash: [2, 4], color: '#e2e8f0' }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            });
+
+            const ctx = document.getElementById('personalChart').getContext('2d');
+            const data = {
+                labels: ['Teaching', 'Academic/Mentoring', 'Research'],
+                datasets: [{
+                    data: [{{ teaching or 0 }}, {{ academic or 0 }}, {{ research or 0 }}],
+                    backgroundColor: [
+                        '#3b82f6', // blue
+                        '#f97316', // orange
+                        '#a855f7'  // purple
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            };
+
+            const config = {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            };
+            new Chart(ctx, config);
+        });
+
+        // ============================================================
+        // CLASS REMINDER ALERT SYSTEM
+        // ============================================================
+        const ALERT_ROLE = '{{ role }}';
+
+        function toggleAlertPanel() {
+            const panel = document.getElementById('alertPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function requestNotifPermission() {
+            if (!('Notification' in window)) {
+                alert('Browser notifications are not supported.');
+                return;
+            }
+            Notification.requestPermission().then(perm => {
+                const btn = document.getElementById('notifBtn');
+                if (perm === 'granted') {
+                    btn.textContent = '✓ Alerts Active';
+                    btn.style.background = '#22c55e';
+                    new Notification('FacultyPulse Alerts Active', {
+                        body: 'You will now receive class reminders.',
+                        icon: '/static/favicon.ico'
+                    });
+                } else {
+                    btn.textContent = 'Blocked by Browser';
+                    btn.style.background = '#ef4444';
+                }
+            });
+        }
+
+        function fireNotif(cls) {
+            if (Notification.permission !== 'granted') return;
+            const label = cls.minutes_until <= 0 ? 'NOW' : `in ${Math.round(cls.minutes_until)} min`;
+            new Notification(`🔔 Class ${label}: ${cls.course_name}`, {
+                body: `${cls.subject_code} | Room ${cls.room} | ${cls.section} | ${cls.start_time}`,
+                icon: '/static/favicon.ico',
+                silent: false
+            });
+        }
+
+        // Track fired notifications to avoid repeating
+        const _firedAlerts = new Set();
+
+        function pollAlerts() {
+            if (ALERT_ROLE !== 'faculty') return;
+            fetch('/api/class_alerts?advance=30')
+                .then(r => r.json())
+                .then(alerts => {
+                    const badge = document.getElementById('alertBadge');
+                    const panelBody = document.getElementById('alertPanelBody');
+
+                    if (alerts.length > 0) {
+                        badge.style.display = 'inline-block';
+                        badge.textContent = alerts.length;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+
+                    // Render alert panel body
+                    if (alerts.length === 0) {
+                        panelBody.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1.5rem;">No upcoming classes in the next 30 minutes.</p>';
+                    } else {
+                        panelBody.innerHTML = alerts.map(a => {
+                            const color = a.status === 'starting_now' ? '#ef4444' : '#f59e0b';
+                            const label = a.minutes_until <= 0 ? '⚡ Starting Now' : `⏱ In ${Math.round(a.minutes_until)} min`;
+                            return `<div style="border-radius:12px;padding:0.9rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);margin-bottom:4px;">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                                    <div>
+                                        <div style="font-weight:800;font-size:0.9rem;">${a.course_name}</div>
+                                        <div style="font-size:0.75rem;color:var(--text-muted);">${a.subject_code} · Room ${a.room} · ${a.section}</div>
+                                    </div>
+                                    <span style="background:${color};color:white;font-size:0.7rem;font-weight:700;padding:3px 8px;border-radius:99px;">${label}</span>
+                                </div>
+                                <div style="font-size:0.8rem;margin-top:6px;color:var(--text-muted);">${a.start_time} – ${a.end_time} ${a.is_lab ? '🔬 Lab' : ''}</div>
+                            </div>`;
+                        }).join('');
+                    }
+
+                    // Fire browser notification once per class
+                    alerts.forEach(a => {
+                        const key = `${a.subject_code}_${a.start_time}`;
+                        if (!_firedAlerts.has(key)) {
+                            fireNotif(a);
+                            _firedAlerts.add(key);
+                        }
+                    });
+                })
+                .catch(() => {});
+        }
+
+        function loadTodaySchedule() {
+            if (ALERT_ROLE !== 'faculty') return;
+            fetch('/api/todays_schedule')
+                .then(r => r.json())
+                .then(classes => {
+                    const body = document.getElementById('todayScheduleBody');
+                    if (!classes.length) {
+                        body.innerHTML = '<span style="color:var(--text-muted);">No classes scheduled for today.</span>';
+                        return;
+                    }
+                    body.style.gridTemplateColumns = 'repeat(auto-fill, minmax(260px, 1fr))';
+                    body.innerHTML = classes.map(c => `
+                        <div style="border-radius:12px;padding:0.9rem 1rem;background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.15);">
+                            <div style="font-weight:800;">${c.course_name}</div>
+                            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;">${c.subject_code} · ${c.section_name} ${c.is_lab ? '🔬' : ''}</div>
+                            <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+                                <span>🕐 ${c.start_time} – ${c.end_time}</span>
+                                <span style="font-weight:700;">📍 ${c.room_no || 'TBD'}</span>
+                            </div>
+                        </div>`).join('');
+                });
+        }
+
+        if (ALERT_ROLE === 'faculty') {
+            loadTodaySchedule();
+            pollAlerts();
+            setInterval(pollAlerts, 60000); // poll every 60 seconds
+
+            // Auto-enable notification if already granted before
+            if (Notification.permission === 'granted') {
+                const btn = document.getElementById('notifBtn');
+                if (btn) { btn.textContent = '✓ Alerts Active'; btn.style.background = '#22c55e'; }
+            }
+        }
+    </script>
+
+    <!-- ═══════════════ CHATBOT WIDGET ═══════════════ -->
+    <style>
+        .chatbot-fab { position:fixed; bottom:1.5rem; right:1.5rem; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#6366f1); color:white; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 20px rgba(59,130,246,0.4); z-index:10000; border:none; font-size:1.4rem; transition:transform 0.2s; }
+        .chatbot-fab:hover { transform:scale(1.1); }
+        .chatbot-panel { display:none; position:fixed; bottom:5rem; right:1.5rem; width:360px; height:480px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:20px; box-shadow:0 10px 50px rgba(0,0,0,0.2); z-index:10000; display:none; flex-direction:column; overflow:hidden; }
+        .chatbot-panel.open { display:flex; }
+        .chat-header { background:linear-gradient(135deg,#3b82f6,#6366f1); color:white; padding:0.85rem 1.15rem; display:flex; align-items:center; gap:0.75rem; }
+        .chat-avatar { width:34px; height:34px; background:rgba(255,255,255,0.25); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; }
+        .chat-messages { flex:1; overflow-y:auto; padding:0.85rem; display:flex; flex-direction:column; gap:0.6rem; }
+        .msg { max-width:85%; padding:0.6rem 0.85rem; border-radius:14px; font-size:0.85rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+        .msg.bot { background:var(--bg-main); border:1px solid var(--border-color); border-bottom-left-radius:4px; align-self:flex-start; }
+        .msg.user { background:linear-gradient(135deg,#3b82f6,#6366f1); color:white; border-bottom-right-radius:4px; align-self:flex-end; }
+        .chat-suggestions { padding:0.4rem 0.75rem; display:flex; gap:0.4rem; flex-wrap:wrap; border-top:1px solid var(--border-color); }
+        .chip { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); color:var(--premium-blue); border-radius:99px; padding:3px 10px; font-size:0.72rem; cursor:pointer; white-space:nowrap; transition:background 0.2s; }
+        .chip:hover { background:rgba(59,130,246,0.18); }
+        .chat-input-row { display:flex; gap:0.5rem; padding:0.6rem; border-top:1px solid var(--border-color); }
+        .chat-input-row input { flex:1; border:1px solid var(--border-color); border-radius:10px; padding:0.5rem 0.75rem; font-size:0.85rem; background:var(--bg-main); color:var(--text-primary); outline:none; }
+        .chat-input-row button { background:linear-gradient(135deg,#3b82f6,#6366f1); color:white; border:none; border-radius:10px; padding:0.5rem 0.85rem; cursor:pointer; font-size:0.9rem; }
+    </style>
+
+    <button class="chatbot-fab" onclick="toggleChat()" title="AI Assistant">🤖</button>
+    <div class="chatbot-panel" id="chatPanel">
+        <div class="chat-header">
+            <div class="chat-avatar">🤖</div>
+            <div>
+                <div style="font-weight:800;font-size:0.9rem;">FacultyPulse AI</div>
+                <div style="font-size:0.72rem;opacity:0.85;">Ask me anything about workload & schedules</div>
+            </div>
+            <button onclick="toggleChat()" style="margin-left:auto;background:none;border:none;color:white;font-size:1.1rem;cursor:pointer;">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="msg bot">👋 Hi! I'm your FacultyPulse AI Assistant.<br>Type a question or pick a suggestion below.</div>
+        </div>
+        <div class="chat-suggestions" id="chipContainer">
+            <span class="chip" onclick="sendChat(this.textContent)">My workload</span>
+            <span class="chip" onclick="sendChat(this.textContent)">Today's timetable</span>
+            <span class="chip" onclick="sendChat(this.textContent)">Yesterday's workload</span>
+            <span class="chip" onclick="sendChat(this.textContent)">My pending approvals</span>
+            <span class="chip" onclick="sendChat(this.textContent)">My research papers</span>
+            <span class="chip" onclick="sendChat(this.textContent)">Help</span>
+        </div>
+        <div class="chat-input-row">
+            <input id="chatInput" placeholder="Ask me anything..." onkeydown="if(event.key==='Enter')sendChat()">
+            <button onclick="sendChat()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleChat() {
+            const panel = document.getElementById('chatPanel');
+            panel.classList.toggle('open');
+        }
+
+        function addMessage(text, role) {
+            const msgs = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'msg ' + role;
+            div.textContent = text;
+            msgs.appendChild(div);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function sendChat(preset) {
+            const input = document.getElementById('chatInput');
+            const query = preset || input.value.trim();
+            if (!query) return;
+            input.value = '';
+            addMessage(query, 'user');
+            fetch('/api/chatbot', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({query})
+            })
+            .then(r => r.json())
+            .then(data => addMessage(data.response, 'bot'))
+            .catch(() => addMessage('Error connecting to assistant.', 'bot'));
+        }
+    </script>
+
+    <script>
+    // ═══════ CLASS CONDUCT TRACKING JS ═══════════════════════════════════
+    const CONDUCT_ROLE = '{{ role }}';
+
+    function statusBadge(status) {
+        const map = {
+            'Pending':       '<span style="background:rgba(100,116,139,0.12);color:#64748b;border-radius:99px;padding:3px 10px;font-size:0.75rem;font-weight:700;">⏳ Pending</span>',
+            'Conducted':     '<span style="background:rgba(34,197,94,0.12);color:#22c55e;border-radius:99px;padding:3px 10px;font-size:0.75rem;font-weight:700;">✅ Conducted</span>',
+            'Not Conducted': '<span style="background:rgba(239,68,68,0.12);color:#ef4444;border-radius:99px;padding:3px 10px;font-size:0.75rem;font-weight:700;">❌ Not Conducted</span>'
+        };
+        return map[status] || status;
+    }
+
+    function loadConductSchedule() {
+        if (CONDUCT_ROLE !== 'faculty') return;
+        fetch('/api/today_conduct_schedule')
+            .then(r => r.json())
+            .then(rows => {
+                const tbody = document.getElementById('conductBody');
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">No classes scheduled for today.</td></tr>';
+                    return;
+                }
+                let totalPts = 0;
+                tbody.innerHTML = rows.map(r => {
+                    totalPts += r.points;
+                    const isLab = r.is_lab ? ' 🔬' : '';
+                    const actions = r.status === 'Pending'
+                        ? `<button onclick="markConducted(${r.timetable_id})" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.75rem;font-weight:700;margin-right:4px;">✅ Conducted</button>
+                           <button onclick="openNCModal(${r.timetable_id})" style="background:#ef4444;color:white;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.75rem;font-weight:700;">❌ Not Conducted</button>`
+                        : `<span style="font-size:0.75rem;color:var(--text-muted);">${r.points > 0 ? r.points + ' pts' : (r.reason || '—')}</span>`;
+                    return `<tr>
+                        <td><strong>${r.course_name}${isLab}</strong><br><span style="font-size:0.75rem;color:var(--text-muted);">${r.subject_code}</span></td>
+                        <td>${r.section_name}</td>
+                        <td>${r.start_time}–${r.end_time}</td>
+                        <td>${r.room_no || '—'}</td>
+                        <td style="text-align:center;">${statusBadge(r.status)}</td>
+                        <td style="text-align:center;">${actions}</td>
+                    </tr>`;
+                }).join('');
+                document.getElementById('todayPoints').textContent = totalPts.toFixed(1);
+            });
+    }
+
+    function markConducted(timetableId) {
+        fetch('/faculty/mark_conduct', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({timetable_id: timetableId, status: 'Conducted'})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('todayPoints').textContent = data.total_today;
+                loadConductSchedule();
+            }
+        });
+    }
+
+    function openNCModal(timetableId) {
+        document.getElementById('ncTimetableId').value = timetableId;
+        document.querySelectorAll('input[name="ncReason"]').forEach(r => r.checked = false);
+        document.getElementById('ncOtherText').value = '';
+        const modal = document.getElementById('notConductedModal');
+        modal.style.display = 'flex';
+    }
+
+    function closeNCModal() {
+        document.getElementById('notConductedModal').style.display = 'none';
+    }
+
+    function submitNotConducted() {
+        const timetableId = document.getElementById('ncTimetableId').value;
+        const selected = document.querySelector('input[name="ncReason"]:checked');
+        const other = document.getElementById('ncOtherText').value.trim();
+        const reason = (selected ? selected.value : '') + (other ? ' — ' + other : '');
+        if (!selected && !other) { alert('Please select a reason.'); return; }
+        fetch('/faculty/mark_conduct', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({timetable_id: parseInt(timetableId), status: 'Not Conducted', reason})
+        })
+        .then(r => r.json())
+        .then(data => { if (data.success) { closeNCModal(); loadConductSchedule(); } });
+    }
+
+    if (CONDUCT_ROLE === 'faculty') {
+        loadConductSchedule();
+        setInterval(loadConductSchedule, 120000); // refresh every 2 min
+    }
+    </script>
+</body>
+
+
+

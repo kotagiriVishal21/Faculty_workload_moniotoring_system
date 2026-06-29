@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOD Dashboard - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-role="hod">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('hod_dashboard') }}" class="nav-link active">
+                    <i data-lucide="check-square"></i> <span>Approvals</span>
+                </a>
+                <a href="{{ url_for('manage_timetable') }}" class="nav-link">
+                    <i data-lucide="calendar"></i> <span>Timetable</span>
+                </a>
+                <a href="{{ url_for('task_distribution') }}" class="nav-link">
+                    <i data-lucide="users"></i> <span>Task Delegation</span>
+                </a>
+                <a href="{{ url_for('schedule_optimization') }}" class="nav-link">
+                    <i data-lucide="clock"></i> <span>Workload Schedule</span>
+                </a>
+                <a href="{{ url_for('redistribution') }}" class="nav-link">
+                    <i data-lucide="shuffle"></i> <span>Redistribution</span>
+                </a>
+                <a href="{{ url_for('hod_accreditation') }}" class="nav-link">
+                    <i data-lucide="file-text"></i> <span>Reports</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link">
+                    <i data-lucide="log-out"></i> <span>Sign Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left">
+                    <span class="user-name">HOD Portal: {{ session['name'] }}</span>
+                </div>
+                <div class="header-right header-actions">
+                    <i data-lucide="line-chart" class="header-action-btn"></i>
+                    <i data-lucide="mail" class="header-action-btn"></i>
+                    <i data-lucide="settings" class="header-action-btn"></i>
+                    <i data-lucide="user" class="header-action-btn"></i>
+                </div>
+            </header>
+
+            <main class="content-area">
+                <div class="dashboard-tabs">
+                    <div class="tab-item active">Overview</div>
+                    <div class="tab-item">Approvals</div>
+                    <div class="tab-item">Dept Analytics</div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card premium-filters" style="margin-bottom: 2rem; padding: 1.25rem;">
+                    <form method="GET" action="{{ url_for('hod_dashboard') }}" style="display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                            <label class="form-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">department</label>
+                            <select name="department_id" class="form-control" onchange="this.form.submit()" style="background: var(--bg-main); border: 1px solid var(--border-color);">
+                                {% for d in departments %}
+                                <option value="{{ d.id }}" {% if d.id == selected_dept %}selected{% endif %}>{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                            <label class="form-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">start date</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" style="background: var(--bg-main); border: 1px solid var(--border-color);" value="{{ request.args.get('start_date', '') }}">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 150px;">
+                            <label class="form-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">end date</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" style="background: var(--bg-main); border: 1px solid var(--border-color);" value="{{ request.args.get('end_date', '') }}">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                            <label class="form-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">semester</label>
+                            <select name="semester" class="form-control" style="background: var(--bg-main); border: 1px solid var(--border-color);">
+                                <option value="Spring 2025">Spring 2025</option>
+                                <option value="Fall 2024">Fall 2024</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-primary" style="height: 42px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="filter" size="16"></i> Apply Filters
+                        </button>
+                    </form>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- KPI Cards for HOD -->
+                    <div class="stat-card">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4>Dept Teaching Hours:</h4></span>
+                            <span class="stat-value">{{ stats.teaching_hours|int }}</span>
+                        </div>
+                        <div class="stat-visual">
+                            <div class="mini-bar-group">
+                                <div class="mini-bar" style="background-color: var(--vibrant-orange);"></div>
+                                <div class="mini-bar" style="background-color: var(--vibrant-blue);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4>Research Papers:</h4></span>
+                            <span class="stat-value">{{ stats.research_papers|int }}</span>
+                        </div>
+                        <div class="stat-visual">
+                            <div class="mini-bar-group">
+                                <div class="mini-bar" style="background-color: var(--vibrant-green);"></div>
+                                <div class="mini-bar" style="background-color: var(--vibrant-blue);"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-info-group">
+                            <span class="stat-details"><h4>Waiting Approval:</h4></span>
+                            <span class="stat-value" style="color: var(--vibrant-red);">{{ (pending_academic|length + pending_research|length) }}</span>
+                        </div>
+                        <div class="stat-visual">
+                            <div class="mini-bar-group">
+                                <div class="mini-bar" style="background-color: var(--vibrant-red);"></div>
+                                <div class="mini-bar" style="background-color: var(--vibrant-blue);"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid" style="margin-top: 2rem; grid-template-columns: 1fr 1fr;">
+                    <div class="card premium-card">
+                        <h3 style="margin-bottom: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="pie-chart" style="color: var(--premium-blue);"></i> Dept Workload Breakdown
+                        </h3>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="workloadChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card premium-card">
+                        <h3 style="margin-bottom: 1.5rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                            <span><i data-lucide="bar-chart-3" style="color: var(--vibrant-orange);"></i> Faculty Ranking</span>
+                        </h3>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="facultyPerformanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Faculty Table View & Search -->
+                <div class="card premium-card" style="margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="font-weight: 800; font-size: 1.25rem;">Faculty List</h3>
+                        <div class="search-box" style="position: relative; width: 300px;">
+                            <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);" size="18"></i>
+                            <input type="text" id="facultySearch" placeholder="Search by name or ID..." class="form-control" style="padding-left: 2.5rem;" onkeyup="filterFacultyTable()">
+                        </div>
+                    </div>
+                    
+                    <div class="table-wrapper premium-table" style="max-height: 400px; overflow-y: auto;">
+                        <table class="academic-table" id="facultyTable">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th onclick="sortTable(0)" style="cursor: pointer;">Name <i data-lucide="arrow-up-down" size="14"></i></th>
+                                    <th>ID</th>
+                                    <th>Total Workload</th>
+                                    <th>Teaching</th>
+                                    <th>Academic</th>
+                                    <th>Research</th>
+                                    <th>Pending</th>
+                                    <th>Intensity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="facultyTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Department Time Analysis Section -->
+                <div class="section-header" style="margin-top: 2.5rem; margin-bottom: 1rem;">
+                    <h2 class="section-title">Department Time Analysis (7-Day Rolling Window)</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Workload calculated against 8-hour maximum workday. Green (0-50%), Yellow (50-80%), Red (80%+)</p>
+                </div>
+
+                <div class="card premium-card">
+                    <h3 style="margin-bottom: 1.5rem; font-weight: 700;">Department Trend</h3>
+                    <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="deptTimeAnalysisChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card premium-card" style="margin-top: 1.5rem;">
+                    <h3 style="font-weight: 800; font-size: 1.25rem; margin-bottom: 1.5rem;">Faculty Daily Workload</h3>
+                    <div class="table-wrapper premium-table" style="max-height: 400px; overflow-y: auto;">
+                        <table class="academic-table">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th>Faculty Name</th>
+                                    <th>Yesterday</th>
+                                    <th>Today</th>
+                                    <th>Tomorrow</th>
+                                    <th>Average Workload</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deptTimeAnalysisTableBody">
+                                <tr><td colspan="5" style="text-align:center;">Loading analysis...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Approvals Queue -->
+                <div class="card premium-card" style="margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                        <h3 style="font-weight: 800; font-size: 1.25rem;">Approvals Command Center</h3>
+                        <div class="status-badge" style="background: rgba(59, 130, 246, 0.1); color: var(--premium-blue); font-weight: 700; padding: 0.5rem 1rem;">
+                            {{ (pending_academic|length + pending_research|length) }} Actions Required
+                        </div>
+                    </div>
+                    
+                    <div class="approval-sections" style="display: grid; gap: 2.5rem;">
+                        <!-- Academic Section -->
+                        <div class="approval-group">
+                            <h4 style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; color: var(--text-main); font-weight: 700;">
+                                <i data-lucide="book-copy" size="18" style="color: var(--premium-blue);"></i> Academic Activities
+                            </h4>
+                            <div class="table-wrapper premium-table">
+                                <table class="academic-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Faculty Member</th>
+                                            <th>Activity Type</th>
+                                            <th>Credit Weight</th>
+                                            <th style="text-align: right;">Decision</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for a in pending_academic %}
+                                        <tr>
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--premium-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;">
+                                                        {{ a.faculty_name[0] }}
+                                                    </div>
+                                                    <strong>{{ a.faculty_name }}</strong>
+                                                </div>
+                                            </td>
+                                            <td>{{ a.activity_type }}</td>
+                                            <td><span class="status-badge" style="background: var(--bg-main); color: var(--premium-blue); border: 1px solid var(--border-color);">{{ a.hours }} Credits</span></td>
+                                            <td style="text-align: right;">
+                                                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                                    <a href="{{ url_for('hod_approve', type='academic', id=a.id, action='approve') }}" class="btn-action approve">Approve</a>
+                                                    <a href="{{ url_for('hod_approve', type='academic', id=a.id, action='reject') }}" class="btn-action reject">Reject</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 3rem;">All academic activities have been processed.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Research Section -->
+                        <div class="approval-group">
+                            <h4 style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; color: var(--text-main); font-weight: 700;">
+                                <i data-lucide="microscope" size="18" style="color: var(--vibrant-green);"></i> Research Milestones
+                            </h4>
+                            <div class="table-wrapper premium-table">
+                                <table class="academic-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Faculty Member</th>
+                                            <th>Publication Title</th>
+                                            <th>Journal/Event</th>
+                                            <th style="text-align: right;">Decision</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for r in pending_research %}
+                                        <tr>
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--vibrant-green); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;">
+                                                        {{ r.faculty_name[0] }}
+                                                    </div>
+                                                    <strong>{{ r.faculty_name }}</strong>
+                                                </div>
+                                            </td>
+                                            <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.title }}</td>
+                                            <td><span class="status-badge" style="background: var(--bg-main); color: var(--vibrant-blue);">{{ r.type }}</span></td>
+                                            <td style="text-align: right;">
+                                                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                                    <a href="{{ url_for('hod_approve', type='research', id=r.id, action='approve') }}" class="btn-action approve">Approve</a>
+                                                    <a href="{{ url_for('hod_approve', type='research', id=r.id, action='reject') }}" class="btn-action reject">Reject</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 3rem;">No pending research papers for review.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- AI Chatbot UI (Bulletproof) -->
+    <style>
+        .chatbot-trigger {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            width: 70px !important;
+            height: 70px !important;
+            background: #1d4ed8 !important; /* Fallback */
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+            color: white !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.6) !important;
+            cursor: pointer !important;
+            z-index: 10000 !important;
+            border: 2px solid rgba(255, 255, 255, 0.4) !important;
+            animation: pulse-blue-debug 2s infinite !important;
+            font-size: 10px !important;
+            font-weight: 800 !important;
+            text-align: center !important;
+            line-height: 1 !important;
+        }
+        @keyframes pulse-blue-debug {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .btn-action {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-action.approve { background: var(--vibrant-green); color: white; }
+        .btn-action.approve:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-action.reject { background: var(--bg-main); color: var(--vibrant-red); border: 1px solid var(--vibrant-red); }
+        .btn-action.reject:hover { background: var(--vibrant-red); color: white; }
+        
+        .premium-card {
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            border-radius: 16px;
+        }
+        .premium-table thead th {
+            background: var(--bg-main);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1rem;
+        }
+        .premium-table tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        .premium-table tbody tr:hover { background: rgba(59, 130, 246, 0.02); }
+        .premium-table tbody td { padding: 1.25rem 1rem; }
+    </style>
+
+    <div class="chatbot-trigger" onclick="toggleChatbot()">
+        <i data-lucide="message-square" style="width: 28px; height: 28px; margin-bottom: 2px;"></i>
+        <span>AI</span>
+    </div>
+
+    <div class="chatbot-window" id="chatbotWindow" style="z-index: 10001;">
+        <div class="chat-header">
+            <span style="font-weight: 700;">FacultyPulse AI</span>
+            <i data-lucide="x" style="cursor: pointer;" onclick="toggleChatbot()"></i>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                Hello! I'm your FacultyPulse assistant. Ask me anything about faculty workload or research data.
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Query workload data..." onkeypress="handleChatKey(event)">
+            <button class="chat-send" onclick="sendChatMessage()">
+                <i data-lucide="send"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Chart & Table logic
+        const chartColors = ['#3b82f6', '#fb923c', '#22c55e', '#ef4444', '#8b5cf6', '#f59e0b'];
+        
+        let urlParams = new URLSearchParams(window.location.search);
+        let deptId = urlParams.get('department_id') || '';
+        let startDate = urlParams.get('start_date') || '';
+        let endDate = urlParams.get('end_date') || '';
+        
+        let apiUrl = `/api/workload_comparison?department_id=${deptId}`;
+        if (startDate) apiUrl += `&start_date=${startDate}`;
+        if (endDate) apiUrl += `&end_date=${endDate}`;
+
+        fetch(apiUrl)
+            .then(res => res.json())
+            .then(data => {
+                const ctxPie = document.getElementById('workloadChart').getContext('2d');
+                new Chart(ctxPie, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(d => d.name),
+                        datasets: [{
+                            data: data.map(d => d.workload),
+                            backgroundColor: chartColors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { 
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } 
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const ctxBar = document.getElementById('facultyPerformanceChart').getContext('2d');
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.name),
+                        datasets: [{
+                            label: 'Workload Hours',
+                            data: data.map(d => d.workload),
+                            backgroundColor: data.map((_, i) => chartColors[i % chartColors.length]),
+                            borderRadius: 8,
+                            barThickness: 30
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const searchInput = document.getElementById('facultySearch');
+                                searchInput.value = data[index].name;
+                                filterFacultyTable();
+                            }
+                        },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { 
+                                grid: { color: '#f1f5f9' },
+                                ticks: { font: { family: 'Plus Jakarta Sans' } }
+                            },
+                            x: { 
+                                grid: { display: false },
+                                ticks: { font: { family: 'Plus Jakarta Sans' } }
+                            }
+                        }
+                    }
+                });
+
+                // Populate Table
+                const tbody = document.getElementById('facultyTableBody');
+                data.forEach(f => {
+                    let intensityColor = 'var(--vibrant-green)';
+                    let intensityText = 'Low';
+                    if (f.workload > 15) { intensityColor = 'var(--vibrant-orange)'; intensityText = 'Medium'; }
+                    if (f.workload > 20) { intensityColor = 'var(--vibrant-red)'; intensityText = 'High'; }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${f.name}</strong></td>
+                        <td>${f.id}</td>
+                        <td style="font-weight: 700;">${f.workload}</td>
+                        <td>${f.teaching}</td>
+                        <td>${f.academic}</td>
+                        <td>${f.research}</td>
+                        <td><span class="status-badge" style="background: var(--bg-main);">${f.pending}</span></td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 10px; height: 10px; border-radius: 50%; background: ${intensityColor};"></div>
+                                <span style="font-size: 0.85rem; font-weight: 600;">${intensityText}</span>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+
+        // Fetch Department Time Analysis Data
+        fetch('/api/department_time_analysis')
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return;
+                
+                const ctxTrend = document.getElementById('deptTimeAnalysisChart').getContext('2d');
+                new Chart(ctxTrend, {
+                    type: 'line',
+                    data: {
+                        labels: data.trend.map(d => d.label),
+                        datasets: [{
+                            label: 'Avg Dept Workload %',
+                            data: data.trend.map(d => d.percentage),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { 
+                                beginAtZero: true, 
+                                max: Math.max(100, ...data.trend.map(d=>d.percentage)) + 10,
+                                grid: { borderDash: [2, 4] }
+                            }
+                        }
+                    }
+                });
+
+                const tbody = document.getElementById('deptTimeAnalysisTableBody');
+                tbody.innerHTML = '';
+                data.faculty_table.forEach(f => {
+                    let colorHex = '#22c55e'; let statusBg = 'rgba(34, 197, 94, 0.1)';
+                    if (f.status === 'yellow') { colorHex = '#f59e0b'; statusBg = 'rgba(245, 158, 11, 0.1)'; }
+                    if (f.status === 'red') { colorHex = '#ef4444'; statusBg = 'rgba(239, 68, 68, 0.1)'; }
+                    
+                    const formatCell = (pct) => {
+                        let c = '#22c55e'; if(pct>=80) c='#ef4444'; else if(pct>=50) c='#f59e0b';
+                        return `<span style="color: ${c}; font-weight: 600;">${pct.toFixed(1)}%</span>`;
+                    };
+                    
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>${f.name}</strong></td>
+                            <td>${formatCell(f.yesterday)}</td>
+                            <td>${formatCell(f.today)}</td>
+                            <td>${formatCell(f.tomorrow)}</td>
+                            <td><span class="status-badge" style="background: ${statusBg}; color: ${colorHex};">${f.avg_workload.toFixed(1)}% Avg</span></td>
+                        </tr>
+                    `;
+                });
+            });
+
+        function filterFacultyTable() {
+            const input = document.getElementById('facultySearch');
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById('facultyTableBody');
+            const tr = table.getElementsByTagName('tr');
+
+            for (let i = 0; i < tr.length; i++) {
+                const nameTd = tr[i].getElementsByTagName('td')[0];
+                const idTd = tr[i].getElementsByTagName('td')[1];
+                if (nameTd || idTd) {
+                    const txtValue = (nameTd.textContent || nameTd.innerText) + ' ' + (idTd.textContent || idTd.innerText);
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }       
+            }
+        }
+        
+        let sortDirection = false;
+        function sortTable(columnIndex) {
+            const table = document.getElementById("facultyTableBody");
+            let rows, switching, i, x, y, shouldSwitch;
+            switching = true;
+            sortDirection = !sortDirection;
+            
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 0; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[columnIndex];
+                    y = rows[i + 1].getElementsByTagName("TD")[columnIndex];
+                    if (sortDirection) {
+                        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) { shouldSwitch = true; break; }
+                    } else {
+                        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) { shouldSwitch = true; break; }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                }
+            }
+        }
+
+        // Chatbot Logic
+        function toggleChatbot() {
+            const win = document.getElementById('chatbotWindow');
+            win.classList.toggle('active');
+        }
+
+        function handleChatKey(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessage(text, role) {
+            const container = document.getElementById('chatMessages');
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.innerText = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            input.value = '';
+
+            fetch('/api/chatbot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                addMessage(data.response, 'bot');
+            })
+            .catch(() => {
+                addMessage("Sorry, I encountered an error processing your request.", "bot");
+            });
+        }
+    </script>
+</body>
+</html>

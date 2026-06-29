@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fair Workload Distribution - FacultyPulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .split-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-top: 2rem; }
+        .recommendation-card { background: linear-gradient(to right, rgba(16, 185, 129, 0.1), transparent); border-left: 4px solid var(--vibrant-green); padding: 1.5rem; margin-bottom: 1rem; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;}
+        .workload-matrix { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+        .workload-pill { background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px; font-weight: 500;}
+        .task-list { margin-top: 2rem; }
+        .task-card { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body data-role="hod">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand-section">
+                <div class="brand-logo"><i data-lucide="graduation-cap"></i></div>
+                <span class="brand-name">FacultyPulse</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="{{ url_for('index') }}" class="nav-link"><i data-lucide="layout-dashboard"></i> <span>Dashboard</span></a>
+                <a href="{{ url_for('hod_dashboard') }}" class="nav-link"><i data-lucide="check-square"></i> <span>Approvals</span></a>
+                <a href="{{ url_for('manage_timetable') }}" class="nav-link"><i data-lucide="calendar"></i> <span>Timetable</span></a>
+                <a href="{{ url_for('task_distribution') }}" class="nav-link active"><i data-lucide="users"></i> <span>Task Delegation</span></a>
+                <a href="{{ url_for('schedule_optimization') }}" class="nav-link"><i data-lucide="clock"></i> <span>Workload Schedule</span></a>
+                <a href="{{ url_for('redistribution') }}" class="nav-link"><i data-lucide="shuffle"></i> <span>Redistribution</span></a>
+                <a href="{{ url_for('hod_accreditation') }}" class="nav-link"><i data-lucide="file-text"></i> <span>Reports</span></a>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-link"><i data-lucide="log-out"></i> <span>Sign Out</span></a>
+            </nav>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="top-header">
+                <div class="header-left"><span class="user-name">HOD Portal: {{ session['name'] }}</span></div>
+            </header>
+
+            <main class="content-area">
+                <div class="section-header">
+                    <h1 class="section-title">Fair Workload Distribution Engine</h1>
+                    <p style="color: var(--text-muted);">Assign new responsibilities intelligently based on current active workload analysis.</p>
+                </div>
+
+                <div class="split-layout">
+                    
+                    <!-- NEW TASK FORM -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 1.5rem;">Draft New Task</h3>
+                        <form action="{{ url_for('assign_task') }}" method="POST">
+                            <div class="form-group">
+                                <label class="form-label">Task Title</label>
+                                <input type="text" name="title" class="form-control" required placeholder="e.g. NAAC Coordinator">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Category</label>
+                                <select name="category" class="form-control">
+                                    <option>Administrative</option>
+                                    <option>Academic Event</option>
+                                    <option>Student Mentoring</option>
+                                    <option>Committee Work</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Effort Weight (1-10)</label>
+                                <input type="number" name="effort_weight" class="form-control" value="5" min="1" max="10" required>
+                                <small style="color: var(--text-muted);">How heavy is this responsibility?</small>
+                            </div>
+                            
+                            <div class="form-group" style="margin-top: 1.5rem;">
+                                <label class="form-label">Assign To (System Recommendation)</label>
+                                <select name="assigned_to" class="form-control" required>
+                                    {% for f in faculty %}
+                                        <option value="{{ f.id }}">{{ f.name }} (Score: {{ f.fairness_score | round(1) }}) {% if loop.index == 1 %}⭐ Best Choice{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Task Description</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;"><i data-lucide="send"></i> Dispatch Assignment</button>
+                        </form>
+                    </div>
+
+                    <!-- LEADERBOARD / RECOMMENDATIONS -->
+                    <div>
+                        <div class="card" style="margin-bottom: 2rem;">
+                            <h3 style="margin-bottom: 1.5rem;">Current Department Fairness Matrix</h3>
+                            <div class="chart-container" style="height: 250px;">
+                                <canvas id="fairnessChart"></canvas>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-muted);">Top Assignment Recommendations</h3>
+                        {% for f in faculty[:3] %}
+                        <div class="recommendation-card">
+                            <div>
+                                <h4 style="margin: 0; color: var(--primary-slate);">{{ loop.index }}. {{ f.name }}</h4>
+                                <div class="workload-matrix">
+                                    <span class="workload-pill" title="Teaching load">📚 {{ f.teaching }}</span>
+                                    <span class="workload-pill" title="Academic activities">🎓 {{ f.academic }}</span>
+                                    <span class="workload-pill" title="Research output">🔬 {{ f.research }}</span>
+                                    <span class="workload-pill" title="Other tasks">📋 {{ f.assigned_effort }}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5rem; font-weight: 800; color: var(--vibrant-green);">{{ f.fairness_score | round(1) }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Score</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- EXISTING TASKS HISTORY -->
+                <div class="task-list">
+                    <h3 style="margin-bottom: 1.5rem;">Recently Dispatched Tasks</h3>
+                    <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                        {% for t in tasks %}
+                        <div class="task-card">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                                <div>
+                                    <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--vibrant-blue);">{{ t.category }}</span>
+                                    <h4 style="margin: 4px 0;">{{ t.title }}</h4>
+                                </div>
+                                <span class="badge" style="background: rgba(0,0,0,0.05); color: var(--text-muted);">Weight: {{ t.effort_weight }}</span>
+                            </div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ t.description or "No description provided." }}
+                            </p>
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 500;">
+                                <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--vibrant-blue); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
+                                    {{ t.assigned_name[0] if t.assigned_name else '?' }}
+                                </div>
+                                Assigned to {{ t.assigned_name or 'Unknown' }}
+                            </div>
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-muted); font-style: italic;">No tasks have been distributed yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        document.addEventListener('DOMContentLoaded', function() {
+            // Reconstruct the sorted faculty list for chart rendering
+            const facultyData = [
+                {% for f in faculty %}
+                { name: "{{ f.name }}", score: {{ f.fairness_score | round(1) }} }{{ "," if not loop.last else "" }}
+                {% endfor %}
+            ];
+
+            const ctx = document.getElementById('fairnessChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: facultyData.map(f => f.name),
+                    datasets: [{
+                        label: 'Total Accumulated Workload (Score)',
+                        data: facultyData.map(f => f.score),
+                        backgroundColor: facultyData.map((f, i) => i < 3 ? '#10b981' : '#cbd5e1'), // highlight top 3 recommendations
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
